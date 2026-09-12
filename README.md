@@ -1,6 +1,6 @@
 # JB FDS Monitor
 
-A single-page browser monitor for MQTT fall events. The page shows connection status, keeps a fall alert active until it is cleared, and can play an optional audible alert.
+A single-page browser monitor for MQTT fall events. The page shows connection status, keeps a fall alert active until it is cleared, can play an optional audible alert, and switches between English and Traditional Chinese.
 
 ## Configure
 

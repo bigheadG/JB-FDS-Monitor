@@ -72,6 +72,7 @@
     }
 
     .brand { display: flex; align-items: center; gap: 13px; }
+    .header-actions { display: flex; align-items: center; gap: 9px; }
 
     .mark {
       width: 42px;
@@ -113,6 +114,17 @@
 
     .connection.connected { color: var(--green); }
     .connection.connected .connection-dot { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+
+    .language-button {
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 0.75rem;
+      letter-spacing: 0.03em;
+    }
 
     main { padding: 28px; }
 
@@ -245,12 +257,15 @@
         <div class="mark" aria-hidden="true">JB</div>
         <div>
           <h1>JB FDS Monitor</h1>
-          <p class="subtitle">Fall detection system</p>
+          <p class="subtitle" id="subtitleText">Fall detection system</p>
         </div>
       </div>
-      <div class="connection" id="connectionBadge" role="status">
-        <span class="connection-dot" aria-hidden="true"></span>
-        <span id="connectionText">DISCONNECTED</span>
+      <div class="header-actions">
+        <button class="language-button" id="languageButton" type="button">中文</button>
+        <div class="connection" id="connectionBadge" role="status">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connectionText">DISCONNECTED</span>
+        </div>
       </div>
     </header>
 
@@ -258,23 +273,23 @@
       <div class="status-panel">
         <div>
           <div class="status-icon" id="statusIcon" aria-hidden="true">✓</div>
-          <span class="status-kicker">Current status</span>
+          <span class="status-kicker" id="statusKicker">Current status</span>
           <h2 class="status-text" id="statusText">NORMAL</h2>
           <p class="status-detail" id="statusDetail">Monitoring for fall events</p>
         </div>
       </div>
 
-      <div class="details" aria-label="Latest event details">
-        <div class="detail-card"><span class="detail-label">Device</span><span class="detail-value" id="deviceValue">—</span></div>
-        <div class="detail-card"><span class="detail-label">Timestamp</span><span class="detail-value" id="timestampValue">—</span></div>
+      <div class="details" id="detailsPanel" aria-label="Latest event details">
+        <div class="detail-card"><span class="detail-label" id="deviceLabel">Device</span><span class="detail-value" id="deviceValue">—</span></div>
+        <div class="detail-card"><span class="detail-label" id="timestampLabel">Timestamp</span><span class="detail-value" id="timestampValue">—</span></div>
         <div class="detail-card"><span class="detail-label">FN</span><span class="detail-value" id="fnValue">—</span></div>
-        <div class="detail-card"><span class="detail-label">Source</span><span class="detail-value" id="sourceValue">—</span></div>
+        <div class="detail-card"><span class="detail-label" id="sourceLabel">Source</span><span class="detail-value" id="sourceValue">—</span></div>
       </div>
 
       <div class="controls">
         <div class="sound-control">
           <button id="soundButton" type="button" aria-pressed="false">SOUND OFF</button>
-          <span>Audible alert</span>
+          <span id="soundLabel">Audible alert</span>
         </div>
         <button id="clearButton" type="button" disabled>CLEAR</button>
       </div>
@@ -298,12 +313,50 @@
     const MQTT_PASSWORD = "";
     const ENABLE_SOUND_BY_DEFAULT = false;
 
+    const translations = {
+      en: {
+        subtitle: "Fall detection system", connected: "CONNECTED", disconnected: "DISCONNECTED",
+        currentStatus: "Current status", normal: "NORMAL", fallDetected: "FALL DETECTED",
+        monitoring: "Monitoring for fall events", alertPersistent: "Alert remains active until cleared",
+        latestDetails: "Latest event details", device: "Device", timestamp: "Timestamp", source: "Source",
+        audibleAlert: "Audible alert", soundOn: "SOUND ON", soundOff: "SOUND OFF", clear: "CLEAR",
+        topic: "Topic", waiting: "Waiting for connection", fallReceived: "Fall event received",
+        alertCleared: "Alert cleared", libraryFailed: "MQTT library failed to load",
+        configureBroker: "Configure broker URL in index.html", subscribing: "Subscribing…",
+        subscriptionFailed: "Subscription failed", listening: "Listening for events",
+        reconnecting: "Reconnecting…", connectionClosed: "Connection closed — retrying",
+        brokerUnavailable: "Broker unavailable — retrying", connectionError: "Connection error",
+        messageReceived: "Message received", switchLanguage: "切換至中文"
+      },
+      zh: {
+        subtitle: "跌倒偵測系統", connected: "已連線", disconnected: "未連線",
+        currentStatus: "目前狀態", normal: "正常", fallDetected: "偵測到跌倒",
+        monitoring: "正在監測跌倒事件", alertPersistent: "警報將持續顯示，直到手動清除",
+        latestDetails: "最新事件詳細資料", device: "裝置", timestamp: "時間", source: "來源",
+        audibleAlert: "聲音警報", soundOn: "聲音開啟", soundOff: "聲音關閉", clear: "清除",
+        topic: "主題", waiting: "等待連線", fallReceived: "已收到跌倒事件",
+        alertCleared: "警報已清除", libraryFailed: "MQTT 程式庫載入失敗",
+        configureBroker: "請在 index.html 設定 broker 網址", subscribing: "正在訂閱…",
+        subscriptionFailed: "訂閱失敗", listening: "正在監聽事件",
+        reconnecting: "正在重新連線…", connectionClosed: "連線已關閉，正在重試",
+        brokerUnavailable: "Broker 無法使用，正在重試", connectionError: "連線錯誤",
+        messageReceived: "已收到訊息", switchLanguage: "Switch to English"
+      }
+    };
+
     const app = document.getElementById("app");
+    const subtitleText = document.getElementById("subtitleText");
+    const languageButton = document.getElementById("languageButton");
     const connectionBadge = document.getElementById("connectionBadge");
     const connectionText = document.getElementById("connectionText");
     const statusIcon = document.getElementById("statusIcon");
+    const statusKicker = document.getElementById("statusKicker");
     const statusText = document.getElementById("statusText");
     const statusDetail = document.getElementById("statusDetail");
+    const detailsPanel = document.getElementById("detailsPanel");
+    const deviceLabel = document.getElementById("deviceLabel");
+    const timestampLabel = document.getElementById("timestampLabel");
+    const sourceLabel = document.getElementById("sourceLabel");
     const deviceValue = document.getElementById("deviceValue");
     const timestampValue = document.getElementById("timestampValue");
     const fnValue = document.getElementById("fnValue");
@@ -312,9 +365,49 @@
     const messageText = document.getElementById("messageText");
     const clearButton = document.getElementById("clearButton");
     const soundButton = document.getElementById("soundButton");
+    const soundLabel = document.getElementById("soundLabel");
 
     let soundEnabled = ENABLE_SOUND_BY_DEFAULT;
     let audioContext;
+    let language = localStorage.getItem("jbFdsLanguage") === "zh" ? "zh" : "en";
+    let connectedState = false;
+    let currentMessage = { key: "waiting", detail: "" };
+    let currentTopic = "—";
+
+    function t(key) {
+      return translations[language][key];
+    }
+
+    function setMessage(key, detail = "") {
+      currentMessage = { key, detail };
+      messageText.textContent = `${t(key)}${detail ? `: ${detail}` : ""}`;
+    }
+
+    function setTopic(topic) {
+      currentTopic = topic;
+      topicText.textContent = `${t("topic")}: ${topic}`;
+    }
+
+    function applyLanguage() {
+      document.documentElement.lang = language === "zh" ? "zh-Hant" : "en";
+      subtitleText.textContent = t("subtitle");
+      statusKicker.textContent = t("currentStatus");
+      detailsPanel.setAttribute("aria-label", t("latestDetails"));
+      deviceLabel.textContent = t("device");
+      timestampLabel.textContent = t("timestamp");
+      sourceLabel.textContent = t("source");
+      soundLabel.textContent = t("audibleAlert");
+      clearButton.textContent = t("clear");
+      connectionText.textContent = t(connectedState ? "connected" : "disconnected");
+      languageButton.textContent = language === "en" ? "中文" : "EN";
+      languageButton.setAttribute("aria-label", t("switchLanguage"));
+      statusText.textContent = t(app.classList.contains("fall") ? "fallDetected" : "normal");
+      statusDetail.textContent = t(app.classList.contains("fall") ? "alertPersistent" : "monitoring");
+      setTopic(currentTopic);
+      setMessage(currentMessage.key, currentMessage.detail);
+      updateSoundButton();
+      document.title = app.classList.contains("fall") ? `${t("fallDetected")} — JB FDS Monitor` : "JB FDS Monitor";
+    }
 
     function firstValue(object, keys) {
       for (const key of keys) {
@@ -362,36 +455,37 @@
 
       app.classList.add("fall");
       statusIcon.textContent = "!";
-      statusText.textContent = "FALL DETECTED";
-      statusDetail.textContent = "Alert remains active until cleared";
+      statusText.textContent = t("fallDetected");
+      statusDetail.textContent = t("alertPersistent");
       deviceValue.textContent = String(device);
       timestampValue.textContent = displayTimestamp(timestamp);
       fnValue.textContent = String(frameNumber);
       sourceValue.textContent = String(source);
-      topicText.textContent = `Topic: ${topic}`;
-      messageText.textContent = "Fall event received";
+      setTopic(topic);
+      setMessage("fallReceived");
       clearButton.disabled = false;
-      document.title = "FALL DETECTED — JB FDS Monitor";
+      document.title = `${t("fallDetected")} — JB FDS Monitor`;
       playAlert();
     }
 
     function clearFall() {
       app.classList.remove("fall");
       statusIcon.textContent = "✓";
-      statusText.textContent = "NORMAL";
-      statusDetail.textContent = "Monitoring for fall events";
+      statusText.textContent = t("normal");
+      statusDetail.textContent = t("monitoring");
       clearButton.disabled = true;
-      messageText.textContent = "Alert cleared";
+      setMessage("alertCleared");
       document.title = "JB FDS Monitor";
     }
 
     function setConnected(connected) {
+      connectedState = connected;
       connectionBadge.classList.toggle("connected", connected);
-      connectionText.textContent = connected ? "CONNECTED" : "DISCONNECTED";
+      connectionText.textContent = t(connected ? "connected" : "disconnected");
     }
 
     function updateSoundButton() {
-      soundButton.textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
+      soundButton.textContent = t(soundEnabled ? "soundOn" : "soundOff");
       soundButton.classList.toggle("enabled", soundEnabled);
       soundButton.setAttribute("aria-pressed", String(soundEnabled));
     }
@@ -423,14 +517,20 @@
       updateSoundButton();
     });
 
+    languageButton.addEventListener("click", () => {
+      language = language === "en" ? "zh" : "en";
+      localStorage.setItem("jbFdsLanguage", language);
+      applyLanguage();
+    });
+
     clearButton.addEventListener("click", clearFall);
-    updateSoundButton();
+    applyLanguage();
 
     if (!window.mqtt) {
-      messageText.textContent = "MQTT library failed to load";
+      setMessage("libraryFailed");
     } else if (BROKER_WEBSOCKET_URL.includes("YOUR_BROKER_HOST")) {
-      topicText.textContent = `Topic: ${MQTT_TOPIC}`;
-      messageText.textContent = "Configure broker URL in index.html";
+      setTopic(MQTT_TOPIC);
+      setMessage("configureBroker");
     } else {
       const connectionOptions = {
         clientId: `jb-fds-web-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(16).slice(2)}`,
@@ -447,36 +547,36 @@
 
       client.on("connect", () => {
         setConnected(true);
-        messageText.textContent = "Subscribing…";
+        setMessage("subscribing");
         client.subscribe(MQTT_TOPIC, { qos: 0 }, error => {
-          topicText.textContent = `Topic: ${MQTT_TOPIC}`;
-          messageText.textContent = error ? "Subscription failed" : "Listening for events";
+          setTopic(MQTT_TOPIC);
+          setMessage(error ? "subscriptionFailed" : "listening");
         });
       });
 
       client.on("reconnect", () => {
         setConnected(false);
-        messageText.textContent = "Reconnecting…";
+        setMessage("reconnecting");
       });
 
       client.on("close", () => {
         setConnected(false);
-        messageText.textContent = "Connection closed — retrying";
+        setMessage("connectionClosed");
       });
 
       client.on("offline", () => {
         setConnected(false);
-        messageText.textContent = "Broker unavailable — retrying";
+        setMessage("brokerUnavailable");
       });
 
       client.on("error", error => {
         setConnected(false);
-        messageText.textContent = `Connection error: ${error.message}`;
+        setMessage("connectionError", error.message);
       });
 
       client.on("message", (topic, payload) => {
         const data = parsePayload(payload.toString());
-        messageText.textContent = "Message received";
+        setMessage("messageReceived");
         if (isFallEvent(topic, data)) showFall(topic, data);
       });
     }
