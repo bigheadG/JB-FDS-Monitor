@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>JB FDS Monitor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #06101d;
+      --panel: rgba(13, 29, 48, 0.88);
+      --line: rgba(148, 163, 184, 0.18);
+      --text: #f8fafc;
+      --muted: #8fa3b8;
+      --green: #33d69f;
+      --green-soft: rgba(51, 214, 159, 0.13);
+      --red: #ff475d;
+      --red-soft: rgba(255, 71, 93, 0.15);
+      --amber: #f7bd59;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(34, 139, 230, 0.13), transparent 30rem),
+        radial-gradient(circle at 85% 90%, rgba(51, 214, 159, 0.08), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 80%);
+    }
+
+    .app {
+      position: relative;
+      width: min(920px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(18px);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 25px 28px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand { display: flex; align-items: center; gap: 13px; }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(51, 214, 159, 0.3);
+      border-radius: 12px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    h1 { margin: 0; font-size: clamp(1.1rem, 4vw, 1.4rem); letter-spacing: -0.02em; }
+    .subtitle { margin: 3px 0 0; color: var(--muted); font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 4px var(--red-soft);
+    }
+
+    .connection.connected { color: var(--green); }
+    .connection.connected .connection-dot { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+
+    main { padding: 28px; }
+
+    .status-panel {
+      min-height: 255px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 35px 20px;
+      border: 1px solid rgba(51, 214, 159, 0.24);
+      border-radius: 18px;
+      background: linear-gradient(145deg, var(--green-soft), rgba(7, 17, 31, 0.42));
+      text-align: center;
+      transition: border-color 180ms ease, background 180ms ease;
+    }
+
+    .status-icon {
+      width: 62px;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 17px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 1.85rem;
+      font-weight: 700;
+    }
+
+    .status-kicker { color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    .status-text { margin: 6px 0 2px; color: var(--green); font-size: clamp(2.7rem, 10vw, 5.3rem); line-height: 1; letter-spacing: -0.06em; }
+    .status-detail { margin: 13px 0 0; color: var(--muted); font-size: 0.92rem; }
+
+    .app.fall .status-panel {
+      border-color: rgba(255, 71, 93, 0.6);
+      background: radial-gradient(circle at 50% 15%, rgba(255, 71, 93, 0.28), var(--red-soft));
+      animation: alert-pulse 1.6s ease-in-out infinite;
+    }
+
+    .app.fall .status-icon { background: rgba(255, 71, 93, 0.2); color: var(--red); }
+    .app.fall .status-text { color: var(--red); font-size: clamp(2.25rem, 9vw, 4.8rem); }
+
+    @keyframes alert-pulse {
+      50% { box-shadow: inset 0 0 50px rgba(255, 71, 93, 0.12), 0 0 28px rgba(255, 71, 93, 0.08); }
+    }
+
+    .details {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .detail-card {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(4, 13, 24, 0.42);
+    }
+
+    .detail-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 0.69rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .detail-value { display: block; overflow: hidden; color: var(--text); font-size: 0.92rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    button {
+      min-height: 45px;
+      border: 0;
+      border-radius: 12px;
+      padding: 0 21px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:focus-visible { outline: 3px solid rgba(51, 214, 159, 0.35); outline-offset: 3px; }
+
+    #clearButton { background: var(--text); color: #0b1725; }
+    #clearButton:disabled { cursor: not-allowed; opacity: 0.3; transform: none; }
+
+    .sound-control { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.8rem; }
+    .sound-control button { min-height: 38px; padding: 0 13px; border: 1px solid var(--line); background: transparent; color: var(--muted); }
+    .sound-control button.enabled { border-color: rgba(51, 214, 159, 0.28); color: var(--green); }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 15px 28px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.7rem;
+    }
+
+    #topicText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    @media (max-width: 680px) {
+      body { padding: 12px; }
+      header, main { padding: 20px; }
+      .details { flex-wrap: wrap; }
+      .detail-card { flex-basis: calc(50% - 12px); }
+      footer { flex-direction: column; padding: 14px 20px; }
+      .connection { padding: 7px 9px; }
+      .connection span:last-child { max-width: 105px; overflow: hidden; text-overflow: ellipsis; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <section class="app" id="app" aria-live="polite">
+    <header>
+      <div class="brand">
+        <div class="mark" aria-hidden="true">JB</div>
+        <div>
+          <h1>JB FDS Monitor</h1>
+          <p class="subtitle">Fall detection system</p>
+        </div>
+      </div>
+      <div class="connection" id="connectionBadge" role="status">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connectionText">DISCONNECTED</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="status-panel">
+        <div>
+          <div class="status-icon" id="statusIcon" aria-hidden="true">✓</div>
+          <span class="status-kicker">Current status</span>
+          <h2 class="status-text" id="statusText">NORMAL</h2>
+          <p class="status-detail" id="statusDetail">Monitoring for fall events</p>
+        </div>
+      </div>
+
+      <div class="details" aria-label="Latest event details">
+        <div class="detail-card"><span class="detail-label">Device</span><span class="detail-value" id="deviceValue">—</span></div>
+        <div class="detail-card"><span class="detail-label">Timestamp</span><span class="detail-value" id="timestampValue">—</span></div>
+        <div class="detail-card"><span class="detail-label">FN</span><span class="detail-value" id="fnValue">—</span></div>
+        <div class="detail-card"><span class="detail-label">Source</span><span class="detail-value" id="sourceValue">—</span></div>
+      </div>
+
+      <div class="controls">
+        <div class="sound-control">
+          <button id="soundButton" type="button" aria-pressed="false">SOUND OFF</button>
+          <span>Audible alert</span>
+        </div>
+        <button id="clearButton" type="button" disabled>CLEAR</button>
+      </div>
+    </main>
+
+    <footer>
+      <span id="topicText">Topic: —</span>
+      <span id="messageText">Waiting for connection</span>
+    </footer>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.4/dist/mqtt.min.js"></script>
+  <script>
+    // ================================================================
+    // JB FDS MONITOR CONFIGURATION — edit these values before publishing
+    // GitHub Pages requires a secure WebSocket URL beginning with wss://.
+    // ================================================================
+    const BROKER_WEBSOCKET_URL = "wss://YOUR_BROKER_HOST:PORT/mqtt";
+    const MQTT_TOPIC = "JB/FDS/#";
+    const MQTT_USERNAME = "";
+    const MQTT_PASSWORD = "";
+    const ENABLE_SOUND_BY_DEFAULT = false;
+
+    const app = document.getElementById("app");
+    const connectionBadge = document.getElementById("connectionBadge");
+    const connectionText = document.getElementById("connectionText");
+    const statusIcon = document.getElementById("statusIcon");
+    const statusText = document.getElementById("statusText");
+    const statusDetail = document.getElementById("statusDetail");
+    const deviceValue = document.getElementById("deviceValue");
+    const timestampValue = document.getElementById("timestampValue");
+    const fnValue = document.getElementById("fnValue");
+    const sourceValue = document.getElementById("sourceValue");
+    const topicText = document.getElementById("topicText");
+    const messageText = document.getElementById("messageText");
+    const clearButton = document.getElementById("clearButton");
+    const soundButton = document.getElementById("soundButton");
+
+    let soundEnabled = ENABLE_SOUND_BY_DEFAULT;
+    let audioContext;
+
+    function firstValue(object, keys) {
+      for (const key of keys) {
+        if (object && object[key] !== undefined && object[key] !== null && object[key] !== "") {
+          return object[key];
+        }
+      }
+      return "—";
+    }
+
+    function parsePayload(rawPayload) {
+      try {
+        const parsed = JSON.parse(rawPayload);
+        return parsed && typeof parsed === "object" ? parsed : { value: parsed };
+      } catch {
+        return { value: rawPayload.trim() };
+      }
+    }
+
+    function isFallEvent(topic, data) {
+      const explicitFlags = [data.fall, data.fallDetected, data.fall_detected, data.isFall, data.is_fall];
+      if (explicitFlags.some(value => value === true || value === 1 || String(value).toLowerCase() === "true")) return true;
+
+      const descriptiveValue = firstValue(data, ["event", "status", "state", "type", "value", "message"]);
+      const normalized = String(descriptiveValue).trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (["fall", "fallen", "fall_detected", "falldetected"].includes(normalized)) return true;
+
+      return /(^|\/)fall(s|_detected)?(\/|$)/i.test(topic) && ["1", "on", "true", "detected"].includes(normalized);
+    }
+
+    function displayTimestamp(value) {
+      if (value === "—") return new Date().toLocaleString();
+      const numericValue = Number(value);
+      const candidate = Number.isFinite(numericValue)
+        ? new Date(numericValue < 100000000000 ? numericValue * 1000 : numericValue)
+        : new Date(value);
+      return Number.isNaN(candidate.getTime()) ? String(value) : candidate.toLocaleString();
+    }
+
+    function showFall(topic, data) {
+      const device = firstValue(data, ["device", "deviceId", "device_id", "clientId", "client_id", "id"]);
+      const timestamp = firstValue(data, ["timestamp", "time", "datetime", "date", "ts"]);
+      const frameNumber = firstValue(data, ["FN", "fn", "frameNumber", "frame_number", "frame"]);
+      const source = firstValue(data, ["source", "src", "method", "origin"]);
+
+      app.classList.add("fall");
+      statusIcon.textContent = "!";
+      statusText.textContent = "FALL DETECTED";
+      statusDetail.textContent = "Alert remains active until cleared";
+      deviceValue.textContent = String(device);
+      timestampValue.textContent = displayTimestamp(timestamp);
+      fnValue.textContent = String(frameNumber);
+      sourceValue.textContent = String(source);
+      topicText.textContent = `Topic: ${topic}`;
+      messageText.textContent = "Fall event received";
+      clearButton.disabled = false;
+      document.title = "FALL DETECTED — JB FDS Monitor";
+      playAlert();
+    }
+
+    function clearFall() {
+      app.classList.remove("fall");
+      statusIcon.textContent = "✓";
+      statusText.textContent = "NORMAL";
+      statusDetail.textContent = "Monitoring for fall events";
+      clearButton.disabled = true;
+      messageText.textContent = "Alert cleared";
+      document.title = "JB FDS Monitor";
+    }
+
+    function setConnected(connected) {
+      connectionBadge.classList.toggle("connected", connected);
+      connectionText.textContent = connected ? "CONNECTED" : "DISCONNECTED";
+    }
+
+    function updateSoundButton() {
+      soundButton.textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
+      soundButton.classList.toggle("enabled", soundEnabled);
+      soundButton.setAttribute("aria-pressed", String(soundEnabled));
+    }
+
+    function playAlert() {
+      if (!soundEnabled) return;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "square";
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.7);
+        oscillator.connect(gain).connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.7);
+      } catch (error) {
+        console.warn("Audible alert unavailable:", error);
+      }
+    }
+
+    soundButton.addEventListener("click", async () => {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        await audioContext.resume();
+      }
+      updateSoundButton();
+    });
+
+    clearButton.addEventListener("click", clearFall);
+    updateSoundButton();
+
+    if (!window.mqtt) {
+      messageText.textContent = "MQTT library failed to load";
+    } else if (BROKER_WEBSOCKET_URL.includes("YOUR_BROKER_HOST")) {
+      topicText.textContent = `Topic: ${MQTT_TOPIC}`;
+      messageText.textContent = "Configure broker URL in index.html";
+    } else {
+      const connectionOptions = {
+        clientId: `jb-fds-web-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(16).slice(2)}`,
+        clean: true,
+        connectTimeout: 10000,
+        reconnectPeriod: 3000,
+        keepalive: 30
+      };
+
+      if (MQTT_USERNAME) connectionOptions.username = MQTT_USERNAME;
+      if (MQTT_PASSWORD) connectionOptions.password = MQTT_PASSWORD;
+
+      const client = mqtt.connect(BROKER_WEBSOCKET_URL, connectionOptions);
+
+      client.on("connect", () => {
+        setConnected(true);
+        messageText.textContent = "Subscribing…";
+        client.subscribe(MQTT_TOPIC, { qos: 0 }, error => {
+          topicText.textContent = `Topic: ${MQTT_TOPIC}`;
+          messageText.textContent = error ? "Subscription failed" : "Listening for events";
+        });
+      });
+
+      client.on("reconnect", () => {
+        setConnected(false);
+        messageText.textContent = "Reconnecting…";
+      });
+
+      client.on("close", () => {
+        setConnected(false);
+        messageText.textContent = "Connection closed — retrying";
+      });
+
+      client.on("offline", () => {
+        setConnected(false);
+        messageText.textContent = "Broker unavailable — retrying";
+      });
+
+      client.on("error", error => {
+        setConnected(false);
+        messageText.textContent = `Connection error: ${error.message}`;
+      });
+
+      client.on("message", (topic, payload) => {
+        const data = parsePayload(payload.toString());
+        messageText.textContent = "Message received";
+        if (isFallEvent(topic, data)) showFall(topic, data);
+      });
+    }
+  </script>
+</body>
+</html>
