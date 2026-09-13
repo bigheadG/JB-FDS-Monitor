@@ -431,9 +431,9 @@
       const explicitFlags = [data.fall, data.fallDetected, data.fall_detected, data.isFall, data.is_fall];
       if (explicitFlags.some(value => value === true || value === 1 || String(value).toLowerCase() === "true")) return true;
 
-      const descriptiveValue = firstValue(data, ["event", "status", "state", "type", "value", "message"]);
+      const descriptiveValue = firstValue(data, ["event", "result", "status", "state", "type", "value", "message"]);
       const normalized = String(descriptiveValue).trim().toLowerCase().replace(/[\s-]+/g, "_");
-      if (["fall", "fallen", "fall_detected", "falldetected"].includes(normalized)) return true;
+      if (["fall", "fallen", "falling", "fall_detected", "falldetected"].includes(normalized)) return true;
 
       return /(^|\/)fall(s|_detected)?(\/|$)/i.test(topic) && ["1", "on", "true", "detected"].includes(normalized);
     }

@@ -2,6 +2,8 @@
 
 A single-page browser monitor for MQTT fall events. The page shows connection status, keeps a fall alert active until it is cleared, can play an optional audible alert, and switches between English and Traditional Chinese.
 
+It accepts both explicit `event: "fall_detected"` messages and the ESP32 event format using `result: "Falling"`.
+
 ## Configure
 
 Open `index.html` and edit the constants near the top of the final `<script>` block:
